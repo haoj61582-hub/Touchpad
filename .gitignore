@@ -1,0 +1,7 @@
+.build
+.typecheck
+dist
+.DS_Store
+.swiftpm
+xcuserdata
+*.xcuserstate
