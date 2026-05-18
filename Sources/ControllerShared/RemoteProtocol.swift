@@ -9,6 +9,94 @@ public enum RemoteCompanionService {
     public static let bonjourType = "_controller-remote._tcp"
 }
 
+public struct RemotePairingPayload: Codable, Sendable, Equatable {
+    public let host: String
+    public let port: UInt16
+    public let displayName: String?
+    public let protocolVersion: Int
+    public let transportHint: String
+
+    public init(
+        host: String,
+        port: UInt16,
+        displayName: String? = nil,
+        protocolVersion: Int = RemoteProtocolVersion.current,
+        transportHint: String = "tcp-json-lines"
+    ) {
+        self.host = host
+        self.port = port
+        self.displayName = displayName
+        self.protocolVersion = protocolVersion
+        self.transportHint = transportHint
+    }
+}
+
+public enum RemotePairingCode {
+    public static let scheme = "controller-remote"
+    public static let action = "pair"
+
+    public static func encode(_ payload: RemotePairingPayload) -> String? {
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = action
+        components.queryItems = [
+            URLQueryItem(name: "host", value: payload.host),
+            URLQueryItem(name: "port", value: String(payload.port)),
+            URLQueryItem(name: "name", value: payload.displayName),
+            URLQueryItem(name: "protocolVersion", value: String(payload.protocolVersion)),
+            URLQueryItem(name: "transport", value: payload.transportHint)
+        ]
+
+        return components.string
+    }
+
+    public static func decode(_ rawValue: String) -> RemotePairingPayload? {
+        guard let components = URLComponents(string: rawValue),
+              components.scheme == scheme,
+              components.host == action
+        else {
+            return nil
+        }
+
+        let items: [String: String] = Dictionary(
+            uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
+                guard let value = item.value else {
+                    return nil
+                }
+
+                return (item.name, value)
+            }
+        )
+
+        guard let host = items["host"]?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines),
+              !host.isEmpty,
+              let portString = items["port"],
+              let port = UInt16(portString)
+        else {
+            return nil
+        }
+
+        let version = items["protocolVersion"].flatMap { Int($0) } ?? RemoteProtocolVersion.current
+        let displayName = items["name"]?.nilIfEmpty
+        let transportHint = items["transport"]?.nilIfEmpty ?? "tcp-json-lines"
+
+        return RemotePairingPayload(
+            host: host,
+            port: port,
+            displayName: displayName,
+            protocolVersion: version,
+            transportHint: transportHint
+        )
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
 public enum PeerPlatform: String, Codable, Sendable, Equatable {
     case ipadOS
     case iOS
@@ -69,6 +157,7 @@ public enum MouseButtonState: String, Codable, Sendable, Equatable {
     case down
     case up
     case click
+    case doubleClick
 }
 
 public enum ModifierKey: String, Codable, Sendable, Hashable {

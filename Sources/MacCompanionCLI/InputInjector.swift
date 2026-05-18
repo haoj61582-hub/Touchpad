@@ -4,6 +4,7 @@ import Foundation
 
 final class InputInjector {
     private let promptForAccessibility: Bool
+    private var isPrimaryButtonHeld = false
 
     init(promptForAccessibility: Bool) {
         self.promptForAccessibility = promptForAccessibility
@@ -69,7 +70,7 @@ final class InputInjector {
 
         let event = CGEvent(
             mouseEventSource: nil,
-            mouseType: .mouseMoved,
+            mouseType: isPrimaryButtonHeld ? .leftMouseDragged : .mouseMoved,
             mouseCursorPosition: next,
             mouseButton: .left
         )
@@ -90,19 +91,36 @@ final class InputInjector {
 
     private func postMouseButton(button: MouseButton, state: MouseButtonState) {
         switch state {
+        case .doubleClick:
+            postClickSequence(button: button, clickStates: [1, 2])
         case .click:
-            postMouseButton(button: button, state: .down)
-            postMouseButton(button: button, state: .up)
+            postClickSequence(button: button, clickStates: [1])
         case .down, .up:
-            let current = currentCursorLocation()
-            let event = CGEvent(
-                mouseEventSource: nil,
-                mouseType: mouseEventType(for: button, state: state),
-                mouseCursorPosition: current,
-                mouseButton: cgMouseButton(for: button)
-            )
-            event?.post(tap: .cghidEventTap)
+            if button == .primary {
+                isPrimaryButtonHeld = (state == .down)
+            }
+
+            postMouseEvent(button: button, state: state)
         }
+    }
+
+    private func postClickSequence(button: MouseButton, clickStates: [Int64]) {
+        for clickState in clickStates {
+            postMouseEvent(button: button, state: .down, clickState: clickState)
+            postMouseEvent(button: button, state: .up, clickState: clickState)
+        }
+    }
+
+    private func postMouseEvent(button: MouseButton, state: MouseButtonState, clickState: Int64 = 1) {
+        let current = currentCursorLocation()
+        let event = CGEvent(
+            mouseEventSource: nil,
+            mouseType: mouseEventType(for: button, state: state),
+            mouseCursorPosition: current,
+            mouseButton: cgMouseButton(for: button)
+        )
+        event?.setIntegerValueField(.mouseEventClickState, value: clickState)
+        event?.post(tap: .cghidEventTap)
     }
 
     private func postText(_ text: String) {
@@ -181,7 +199,7 @@ final class InputInjector {
             return .otherMouseDown
         case (.middle, .up):
             return .otherMouseUp
-        case (_, .click):
+        case (_, .click), (_, .doubleClick):
             return .null
         }
     }

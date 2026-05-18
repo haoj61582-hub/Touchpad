@@ -73,7 +73,7 @@ struct MechanicalKeyboardView: View {
 
     private func header(metrics: KeyboardSurfaceMetrics) -> some View {
         Group {
-            if metrics.isPortrait {
+            if metrics.prefersStackedHeader {
                 VStack(alignment: .leading, spacing: 12) {
                     headerText(metrics: metrics)
                     badgeStrip
@@ -121,7 +121,7 @@ struct MechanicalKeyboardView: View {
 
     private func layerToolbar(metrics: KeyboardSurfaceMetrics) -> some View {
         Group {
-            if metrics.isPortrait {
+            if metrics.prefersStackedToolbar {
                 VStack(alignment: .leading, spacing: 12) {
                     layerButtons
                     numberPadToggle
@@ -138,14 +138,17 @@ struct MechanicalKeyboardView: View {
     }
 
     private var layerButtons: some View {
-        HStack(spacing: 10) {
-            ForEach(KeyboardLayer.allCases, id: \.self) { layer in
-                Button(layer.toolbarTitle) {
-                    activate(layer)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(KeyboardLayer.allCases, id: \.self) { layer in
+                    Button(layer.toolbarTitle) {
+                        activate(layer)
+                    }
+                    .buttonStyle(LayerChipButtonStyle(selected: activeLayer == layer))
                 }
-                .buttonStyle(LayerChipButtonStyle(selected: activeLayer == layer))
             }
         }
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
     }
 
     private var numberPadToggle: some View {
@@ -683,133 +686,151 @@ private struct KeyboardSurfaceMetrics {
         size.height >= size.width
     }
 
+    var isCompact: Bool {
+        min(size.width, size.height) < 430
+    }
+
+    var prefersStackedHeader: Bool {
+        isPortrait || isCompact
+    }
+
+    var prefersStackedToolbar: Bool {
+        isPortrait || isCompact
+    }
+
     var stacksNumberPad: Bool {
-        showsNumberPad && (isPortrait || size.width < 980)
+        showsNumberPad && (isPortrait || size.width < 980 || isCompact)
     }
 
     var scale: CGFloat {
-        let referenceHeight: CGFloat = stacksNumberPad ? 860 : 650
-        return max(0.84, min(1.08, size.height / referenceHeight))
+        let referenceHeight: CGFloat
+        if isCompact {
+            referenceHeight = stacksNumberPad ? 980 : 760
+        } else {
+            referenceHeight = stacksNumberPad ? 860 : 650
+        }
+
+        return max(isCompact ? 0.62 : 0.84, min(isCompact ? 0.92 : 1.08, size.height / referenceHeight))
     }
 
     var sectionSpacing: CGFloat {
-        isPortrait ? 14 : 18
+        isCompact ? 10 : (isPortrait ? 14 : 18)
     }
 
     var deckSpacing: CGFloat {
-        isPortrait ? 12 : 16
+        isCompact ? 10 : (isPortrait ? 12 : 16)
     }
 
     var deckRowSpacing: CGFloat {
-        isPortrait ? 8 : 10
+        isCompact ? 6 : (isPortrait ? 8 : 10)
     }
 
     var keySpacing: CGFloat {
-        isPortrait ? 6 : 8
+        isCompact ? 4 : (isPortrait ? 6 : 8)
     }
 
     var outerPadding: CGFloat {
-        isPortrait ? 18 : 20
+        isCompact ? 12 : (isPortrait ? 18 : 20)
     }
 
     var mainDeckPadding: CGFloat {
-        isPortrait ? 12 : 14
+        isCompact ? 8 : (isPortrait ? 12 : 14)
     }
 
     var compactDeckPadding: CGFloat {
-        isPortrait ? 10 : 12
+        isCompact ? 8 : (isPortrait ? 10 : 12)
     }
 
     var surfaceCornerRadius: CGFloat {
-        isPortrait ? 28 : 32
+        isCompact ? 22 : (isPortrait ? 28 : 32)
     }
 
     var mainDeckCornerRadius: CGFloat {
-        isPortrait ? 24 : 28
+        isCompact ? 18 : (isPortrait ? 24 : 28)
     }
 
     var compactDeckCornerRadius: CGFloat {
-        isPortrait ? 22 : 26
+        isCompact ? 18 : (isPortrait ? 22 : 26)
     }
 
     var sideNumberPadWidth: CGFloat {
-        min(max(size.width * 0.24, 220), 280)
+        min(max(size.width * (isCompact ? 0.3 : 0.24), isCompact ? 170 : 220), isCompact ? 220 : 280)
     }
 
     var stackedNumberPadWidth: CGFloat {
-        min(max(size.width * 0.54, 260), 380)
+        min(max(size.width * (isCompact ? 0.92 : 0.54), isCompact ? 250 : 260), isCompact ? 340 : 380)
     }
 
     var titleSize: CGFloat {
-        isPortrait ? 24 : 28
+        isCompact ? 20 : (isPortrait ? 24 : 28)
     }
 
     var subtitleSize: CGFloat {
-        isPortrait ? 12 : 13
+        isCompact ? 11 : (isPortrait ? 12 : 13)
     }
 
     var footnoteSize: CGFloat {
-        isPortrait ? 11 : 12
+        isCompact ? 10 : (isPortrait ? 11 : 12)
     }
 
     var functionRowHeight: CGFloat {
-        round((isPortrait ? 30 : 34) * scale)
+        round((isCompact ? 24 : (isPortrait ? 30 : 34)) * scale)
     }
 
     var standardRowHeight: CGFloat {
-        round((isPortrait ? 46 : 54) * scale)
+        round((isCompact ? 32 : (isPortrait ? 46 : 54)) * scale)
     }
 
     var bottomRowHeight: CGFloat {
-        round((isPortrait ? 48 : 56) * scale)
+        round((isCompact ? 34 : (isPortrait ? 48 : 56)) * scale)
     }
 
     var compactFunctionRowHeight: CGFloat {
-        round((isPortrait ? 36 : 42) * scale)
+        round((isCompact ? 28 : (isPortrait ? 36 : 42)) * scale)
     }
 
     var compactRowHeight: CGFloat {
-        round((isPortrait ? 44 : 54) * scale)
+        round((isCompact ? 30 : (isPortrait ? 44 : 54)) * scale)
     }
 
     var keyHorizontalPadding: CGFloat {
-        isPortrait ? 8 : 10
+        isCompact ? 5 : (isPortrait ? 8 : 10)
     }
 
     var keyVerticalPadding: CGFloat {
-        isPortrait ? 6 : 8
+        isCompact ? 4 : (isPortrait ? 6 : 8)
     }
 
     var keyCornerRadius: CGFloat {
-        isPortrait ? 14 : 16
+        isCompact ? 10 : (isPortrait ? 14 : 16)
     }
 
     var letterFontSize: CGFloat {
-        isPortrait ? 16 : 18
+        isCompact ? 12 : (isPortrait ? 16 : 18)
     }
 
     var symbolUpperFontSize: CGFloat {
-        isPortrait ? 9 : 10
+        isCompact ? 7 : (isPortrait ? 9 : 10)
     }
 
     var symbolLowerFontSize: CGFloat {
-        isPortrait ? 16 : 18
+        isCompact ? 12 : (isPortrait ? 16 : 18)
     }
 
     var modifierFontSize: CGFloat {
-        isPortrait ? 12 : 13
+        isCompact ? 10 : (isPortrait ? 12 : 13)
     }
 
     var specialFontSize: CGFloat {
-        isPortrait ? 13 : 14
+        isCompact ? 11 : (isPortrait ? 13 : 14)
     }
 
     var specialCompactFontSize: CGFloat {
-        isPortrait ? 10 : 11
+        isCompact ? 9 : (isPortrait ? 10 : 11)
     }
 
     var symbolFontSize: CGFloat {
-        isPortrait ? 12 : 13
+        isCompact ? 10 : (isPortrait ? 12 : 13)
     }
 }
 
